@@ -1,67 +1,150 @@
 package XML::Feed::Aggregator;
-use 5.00800;
+use 5.008;
 use strict;
 use warnings;
 use Carp;
 use URI;
 use XML::Feed;
+use XML::Feed::Deduper;
+use DateTime;
+use Try::Tiny;
+use File::Temp qw/tempfile/;
+use namespace::autoclean;
 
-our $VERSION = 0.01;
+our $VERSION = 0.03;
 
 sub new {
-    my ($class, $param) = @_;
+    my ($class, $self) = @_;
 
-    croak 'uri should be an array ref'
-        if $param->{uri} and ref $param->{uri} ne 'ARRAY';
+    croak 'expecting HashRef' unless ref ($self) eq 'HASH';
 
-    for (@{$param->{uri}}) {
-        croak 'expecting list of URI objects' 
-            if ref $_ !~ /^URI/
-    }
+    croak 'sources should be an ArrayRef'
+        if ref ($self->{sources}) ne 'ARRAY';
 
-    for (@{$param->{feeds}}) {
-        croak 'expecting list of XML::Feed objects' 
-            if ref $_ ne 'XML::Feed' 
-    }
+    $self->{$_} = [] for qw/entries errors/;
 
-    $param->{type} = ['RSS'];
+    $self->{new_feed}{type} ||= ['RSS'];
 
-    bless ($param, $class);
+    bless ($self, $class);
+
+    $self->_load_sources;
+
+    return $self;
 }
 
-sub _build_feed_list {
+sub _load_sources {
     my ($self) = @_;
+    
+    my @feeds;
 
-    for my $uri (@{$self->{uri}}) {
-        my $feed = XML::Feed->parse($uri)
-            or croak $uri->as_string." ".XML::Feed->errstr; 
-        push @{$self->{feeds}}, $feed;
+    for (grep {defined } $self->sources) {
+        next unless defined $_;
+
+        if (ref ($_) =~ /^XML::Feed::Format/) {
+            push @feeds, $_;
+            next;
+        }
+        else {
+            my ($uri, $xml_feed);
+
+            if (ref ($_) !~ /^URI/) {
+                $uri = URI->new($_);
+            } else {
+                $uri = $_;
+            }
+
+            next unless defined $uri;
+
+            $xml_feed = $self->_load_feed($uri);
+
+            push @feeds, $xml_feed
+                if defined $xml_feed;
+        }
     }
+
+    $self->{sources} = \@feeds;
+    return scalar($self->sources);
 }
 
+sub _load_feed {
+    my ($self, $uri) = @_;
+
+    my $xml_feed;
+
+    try { 
+        $xml_feed = XML::Feed->parse($uri);
+    }
+    catch {
+        push @{$self->{errors}}, $uri->as_string." - failed: $_\n"; 
+    }
+    finally {
+        push @{$self->{_sources}}, $xml_feed 
+            if defined $xml_feed;
+    };
+
+    if (XML::Feed->errstr) {
+        push @{$self->{errors}}, 
+            $uri->as_string." - failed: ".XML::Feed->errstr."\n";
+    }
+
+    return $xml_feed;
+}
 
 sub sort {
-    my ($self) = @_;
+    my ($self, $direction) = @_;
 
-    $self->_build_feed_list;
-    
-    for my $feed (@{$self->{feeds}}) {
-       push @{$self->{entries}}, $feed->entries
+    for my $source ($self->sources) {
+        next unless defined $source and $source->can('entries');
+        push @{$self->{entries}}, $source->entries;
     }
 
-    @{$self->{entries}} = 
-        sort { $a->issued->compare($b->issued) } 
-            @{$self->{entries}};
+    if (defined $direction and $direction =~ /^desc/i){
+        @{$self->{entries}} = sort _desc_date $self->entries;
+    }
+    else {
+        @{$self->{entries}} = sort _asc_date $self->entries;
+    }
 
-    $self->_new_feed;
+    $self->_build_feed;
 
-    $self->{feed}->add_entry($_) for (@{$self->{entries}});
+    $self->{feed}->add_entry($_) for ($self->entries);
 }
 
-sub _new_feed {
+sub deduplicate {
     my ($self) = @_;
 
-    $self->{feed} = XML::Feed->new(@{$self->{type}});
+    my $entry_count = scalar $self->entries;
+
+    return unless $entry_count > 2;
+
+    my ($fh, $file) = tempfile();
+
+    $self->{deduper} ||= XML::Feed::Deduper->new(
+        path => $file
+    );
+
+    @{$self->{entries}} 
+        = $self->{deduper}->dedup($self->entries);
+    
+    return ($entry_count - scalar $self->entries);
+}
+
+sub _asc_date {
+    my $adt = $a->issued || $a->modified;
+    my $bdt = $b->issued || $b->modified;
+    $bdt->compare($adt);
+}
+
+sub _desc_date {
+    my $adt = $a->issued || $a->modified;
+    my $bdt = $b->issued || $b->modified;
+    $adt->compare($bdt);
+}
+
+sub _build_feed {
+    my ($self) = @_;
+
+    $self->{feed} = XML::Feed->new(@{$self->{new_feed}{type}});
 
     croak "Couldn't create new XML::Feed object" 
         unless defined $self->{feed};
@@ -70,18 +153,30 @@ sub _new_feed {
         tagline author language|) {
 
         if( $self->{$attr} ) {
-            $self->{feed}->$attr($self->{$attr});
+            $self->{feed}->$attr($self->{new_feed}{$attr});
         }
     }
 }
 
-sub entries {
-    return $_[0]->{entries};
+sub entries { @{$_[0]->{entries}} }
+
+sub feed { $_[0]->{feed} }
+
+sub sources { @{$_[0]->{sources}} }
+
+sub errors { @{$_[0]->{errors}} }
+
+sub since {
+    my ($self, $date) = @_;
+
+    croak "expecting a DateTime object" 
+        unless ref($date) eq 'DateTime';
+
+    return grep {
+        defined $_ and $date->compare($_->issued || $_->modified) < 0;
+    } $self->entries;
 }
 
-sub feed {
-    return $_[0]->{feed};
-}
 
 1;
 __END__
@@ -92,31 +187,37 @@ XML::Feed::Aggregator - Perl module for aggregating feeds
 
 =head1 SYNOPSIS
 
-  use XML::Feed::Aggregator;
-
-  # construction
-
   use URI;
-  my $slashdot = URI->new('http://rss.slashdot.org/Slashdot/slashdot');
-  my $useperl = URI->new('http://use.perl.org/index.rss');
-
-  my $agg = XML::Feed::Aggregator->new({uri => [$slashdot, $useperl]);
-
-  # OR 
-  
   use XML::Feed;
-  my $slashdot = XML::Feed->parse("http://rss.slashdot.org/Slashdot/slashdot");
-  my $useperl = XML::Feed->new('http://use.perl.org/index.rss');
-
-  my $agg = XML::Feed::Aggregator->new({feeds =>[$slashdot, $useperl]);
-
-  # usage
+  use XML::Feed::Aggregator;
   
+  # construction with URIs / XML::Feed / strings
+  my @sources = [ URI->new('http://rss.slashdot.org/Slashdot/slashdot'),
+    'http://use.perl.org/index.rss',
+    XML::Feed->parse(URI->new("http://planet.perl.org")) ];
+
+  my $agg = XML::Feed::Aggregator->new({sources => \@sources});
+
+  # sort entries by date
   $agg->sort;
 
-  for ($agg->entries) {...}  # loop through XML::Feed::Entry's 
+  # or descending order
+  $agg->sort('desc');
 
-  my $feed = $agg->feed; # get aggregated XML::Feed object
+  my $d = $agg->deduplicate;
+  say "removed $d duplicates";
+
+  # loop through XML::Feed::Entry objects 
+  for ($agg->entries) {
+      say $_->title;
+      say $_->content;
+  }
+
+  # get new aggregated XML::Feed object
+  my $feed = $agg->feed;
+
+  # loop through errors;
+  warn $_ for ($agg->errors);
 
 =head1 DESCRIPTION
 
@@ -124,13 +225,55 @@ This module aggregates feeds into a single XML::Feed object
 
 =head1 CONSTRUCTION
 
-Following params are passed to the final XML::Feed object
+List of feeds to be aggregated:
 
-  title, link, base, description, tagline, author, & language
+ sources - ArrayRef of URI's, URL Strings and XML::Feed objects
+
+Parameters for the new feed object ( see XML::Feed for more params )
+
+ new_feed => { 
+    title => 'New aggregated feed', 
+    link => 'http://www.your.com/feed.rss',
+    author => 'Jim Bob',
+ }
+
+=head1 METHODS
+
+=head2 sort
+
+sort feed by date
+
+=head2 deduplicate
+
+removed duplicated entries from the feed
+
+=head2 feed
+
+returns the new XML::Feed object
+
+=head2 entries
+
+return list of feed entries
+
+=head2 sources
+
+return list of the source XML::Feed's
+
+=head2 since
+
+takes a DateTime object and returns any entries since that date
+
+=head2 errors
+
+returns list of errors that have occured
+
+=head1 CONTRIBUTE
+
+git://github.com/robinedwards/XM-Feed-Aggregator.git
 
 =head1 SEE ALSO
 
-XML::Feed Feed::Find
+XML::Feed XML::Feed::Deduper Feed::Find
 
 =head1 AUTHOR
 
