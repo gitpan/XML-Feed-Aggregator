@@ -1,31 +1,29 @@
---- #YAML:1.0
-name:               XML-Feed-Aggregator
-version:            0.03
-abstract:           Perl module for aggregating feeds
+---
+abstract: 'Simple feed aggregator'
 author:
-    - Robin Edwards <rge@cpan.org>
-license:            unknown
-distribution_type:  module
-configure_requires:
-    ExtUtils::MakeMaker:  0
+  - 'Robin Edwards <robin.ge@gmail.com>'
 build_requires:
-    ExtUtils::MakeMaker:  0
-requires:
-    Carp:                 0
-    DateTime:             0
-    DateTime::Duration:   0
-    File::Temp:           0
-    namespace::autoclean:  0
-    Test::More:           0
-    Try::Tiny:            0
-    URI:                  0
-    XML::Feed:            0
-    XML::Feed::Deduper:   0.03
-no_index:
-    directory:
-        - t
-        - inc
-generated_by:       ExtUtils::MakeMaker version 6.56
+  Test::More: 0.94
+configure_requires:
+  ExtUtils::MakeMaker: 6.31
+dynamic_config: 0
+generated_by: 'Dist::Zilla version 4.102341, CPAN::Meta::Converter version 2.102400'
+license: perl
 meta-spec:
-    url:      http://module-build.sourceforge.net/META-spec-v1.4.html
-    version:  1.4
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: XML-Feed-Aggregator
+requires:
+  DateTime: 0.66
+  HTML::Scrubber: 0.08
+  Moose: 1.24
+  MooseX::Types: 0.25
+  MooseX::Types::URI: 0.02
+  Try::Tiny: 0.09
+  URI: 1.58
+  XML::Feed: 0.43
+  namespace::autoclean: 0.12
+resources:
+  bugtracker: https://github.com/robinedwards/XML-Feed-Aggregator/issues
+  repository: git://github.com/robinedwards/XML-Feed-Aggregator.git
+version: 0.0400

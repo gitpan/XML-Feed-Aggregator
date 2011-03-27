@@ -4,25 +4,22 @@ use Test::More 'no_plan';
 use XML::Feed;
 use XML::Feed::Aggregator;
 
-# test construction from a mixed list
-
 my $agg = XML::Feed::Aggregator->new({
         feeds => [
             XML::Feed->parse('t_data/slashdot.rss'),
-            XML::Feed->parse('t_data/use_perl.rss'),
-            XML::Feed->parse('t_data/theregister.atom'),
+            XML::Feed->parse('t_data/ironman.rss'),
         ] 
     }
 );
 
 isa_ok($agg, 'XML::Feed::Aggregator');
 
-is $agg->entry_count, 0, 'entry count';
-
 $agg->aggregate; # combine
 
-ok $agg->feed_count == 3, 'added feeds';
+$agg->sort_by_date;
 
-is $agg->entry_count, 75, 'entry count';
+my ($ent1, $ent2) = $agg->all_entries;
+
+is $ent1->issued->compare($ent2->issued), -1, 'sorted';
 
 is $agg->error_count, 0,  'no errors';
