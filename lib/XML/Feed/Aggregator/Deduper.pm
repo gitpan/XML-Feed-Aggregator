@@ -1,6 +1,6 @@
 package XML::Feed::Aggregator::Deduper;
 BEGIN {
-  $XML::Feed::Aggregator::Deduper::VERSION = '0.0400';
+  $XML::Feed::Aggregator::Deduper::VERSION = '0.0401';
 }
 use Moose::Role;
 use MooseX::Types::Moose qw/Int HashRef/;
@@ -87,7 +87,7 @@ XML::Feed::Aggregator::Deduper
 
 =head1 VERSION
 
-version 0.0400
+version 0.0401
 
 =head1 NAME
 

@@ -2,7 +2,7 @@ NAME
     XML::Feed::Aggregator
 
 VERSION
-    version 0.0400
+    version 0.0401
 
 SYNOPSIS
         use XML::Feed::Aggregator;

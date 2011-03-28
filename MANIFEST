@@ -5,6 +5,7 @@ META.json
 META.yml
 Makefile.PL
 README
+README.mkdn
 dist.ini
 examples/fetch_feeds.pl
 lib/XML/Feed/Aggregator.pm

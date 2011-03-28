@@ -12,7 +12,9 @@ my %WriteMakefileArgs = (
   'ABSTRACT' => 'Simple feed aggregator',
   'AUTHOR' => 'Robin Edwards <robin.ge@gmail.com>',
   'BUILD_REQUIRES' => {
-    'Test::More' => '0.94'
+    'Test::More' => '0.94',
+    'Test::NoWarnings' => '1.02',
+    'Test::UseAllModules' => '0.13'
   },
   'CONFIGURE_REQUIRES' => {
     'ExtUtils::MakeMaker' => '6.31'
@@ -32,7 +34,7 @@ my %WriteMakefileArgs = (
     'XML::Feed' => '0.43',
     'namespace::autoclean' => '0.12'
   },
-  'VERSION' => '0.0400',
+  'VERSION' => '0.0401',
   'test' => {
     'TESTS' => 't/*.t'
   }

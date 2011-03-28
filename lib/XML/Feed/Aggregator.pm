@@ -1,6 +1,6 @@
 package XML::Feed::Aggregator;
 BEGIN {
-  $XML::Feed::Aggregator::VERSION = '0.0400';
+  $XML::Feed::Aggregator::VERSION = '0.0401';
 }
 use Moose;
 use MooseX::Types::Moose qw/ArrayRef Str/;
@@ -151,7 +151,7 @@ XML::Feed::Aggregator
 
 =head1 VERSION
 
-version 0.0400
+version 0.0401
 
 =head1 SYNOPSIS
 

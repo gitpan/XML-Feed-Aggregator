@@ -34,7 +34,9 @@
       },
       "test" : {
          "requires" : {
-            "Test::More" : "0.94"
+            "Test::More" : "0.94",
+            "Test::NoWarnings" : "1.02",
+            "Test::UseAllModules" : "0.13"
          }
       }
    },
@@ -43,12 +45,13 @@
       "bugtracker" : {
          "web" : "https://github.com/robinedwards/XML-Feed-Aggregator/issues"
       },
+      "homepage" : "http://search.cpan.org/dist/XML-Feed-Aggregator/",
       "repository" : {
          "type" : "git",
          "url" : "git://github.com/robinedwards/XML-Feed-Aggregator.git",
          "web" : "https://github.com/robinedwards/XML-Feed-Aggregator"
       }
    },
-   "version" : "0.0400"
+   "version" : "0.0401"
 }
 
